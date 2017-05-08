@@ -10,6 +10,11 @@
  */
 class Sailthru_Client {
     /**
+     * @var Sailthru_Client_TransportInterface
+     */
+    protected $transport;
+
+    /**
      *
      * Sailthru API Key
      * @var string
@@ -31,41 +36,9 @@ class Sailthru_Client {
     protected $api_uri = 'https://api.sailthru.com';
 
     /**
-     *
-     * cURL or non-cURL request
-     * @var string
-     */
-    protected $http_request_type;
-
-    /**
-     *
-     * User agent making request to Sailthru API server
-     * Even, if you modify user-agent, please try to include 'PHP5' somewhere in the user-agent
-     * @var String
-     */
-    protected $user_agent_string;
-
-    /**
-     * Get information regarding last response from server
-     */
-    private $lastResponseInfo = null;
-
-    /**
      * Rate Limit information for last API call
      */
     private $lastRateLimitInfo = [ ];
-
-    /**
-     * File Upload Flag variable
-     */
-    private $fileUpload = false;
-
-    private $httpHeaders = [ "User-Agent: Sailthru API PHP5 Client" ];
-
-    const DEFAULT_READ_TIMEOUT = 10000;
-    const DEFAULT_CONNECT_TIMEOUT = 10000;
-
-    private $options = [ 'timeout' => Sailthru_Client::DEFAULT_READ_TIMEOUT, 'connect_timeout' => Sailthru_Client::DEFAULT_CONNECT_TIMEOUT ];
 
     /**
      * Instantiate a new client; constructor optionally takes overrides for api_uri and whether
@@ -73,36 +46,36 @@ class Sailthru_Client {
      *
      * @param string $api_key
      * @param string $secret
-     * @param string $api_uri
-     * @param array $options - optional parameters for connect/read timeout
+     * @param string|bool $api_uri
+     * @param array|Sailthru_Client_TransportInterface $transportOptions - optional parameters for connect/read timeout or the whole transport
      */
-    public function  __construct($api_key, $secret, $api_uri = false, $options = null) {
+    public function  __construct($api_key, $secret, $api_uri = false, $transportOptions = null) {
         $this->api_key = $api_key;
         $this->secret = $secret;
         if ($api_uri !== false) {
             $this->api_uri = $api_uri;
         }
 
-        $this->http_request_type = function_exists('curl_init') ? 'httpRequestCurl' : 'httpRequestWithoutCurl';
-
-        if (isset($options)) {
-            $this->options['timeout'] = isset($options['timeout']) ? (int) $options['timeout'] : Sailthru_Client::DEFAULT_READ_TIMEOUT;
-            $this->options['connect_timeout'] =
-                isset($options['connect_timeout']) ? (int) $options['connect_timeout'] : Sailthru_Client::DEFAULT_CONNECT_TIMEOUT;
+        if ($transportOptions instanceof Sailthru_Client_TransportInterface) {
+            $this->transport = $transportOptions;
+        } else {
+            if (!is_array($transportOptions)) {
+                $transportOptions = array();
+            }
+            $this->transport = new Sailthru_Client_TransportCurl($transportOptions);
         }
     }
 
     public function getConnectTimeout() {
-        return $this->options['connect_timeout'];
+        throw new \LogicException('No longer supported');
     }
 
     public function getTimeout() {
-        return $this->options['timeout'];
+        throw new \LogicException('No longer supported');
     }
 
     public function setHttpHeaders(array $headers) {
-        $this->httpHeaders = array_merge($this->httpHeaders, $headers);
-        return true;
+        throw new \LogicException('No longer supported');
     }
 
     /**
@@ -1406,49 +1379,7 @@ class Sailthru_Client {
      * @throws Sailthru_Client_Exception
      */
     protected function httpRequestCurl($action, array $data, $method = 'POST', $options = [ ]) {
-        $url = $this->api_uri . "/" . $action;
-        $ch = curl_init();
-        $options = array_merge($this->options, $options);
-        if ($method == 'POST') {
-            curl_setopt($ch, CURLOPT_POST, true);
-            if ($this->fileUpload === true) {
-                curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-                $this->fileUpload = false;
-            } else {
-                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data, '', '&'));
-            }
-        } else {
-            $url .= '?' . http_build_query($data, '', '&');
-            if ($method != 'GET') {
-                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-            }
-        }
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_HEADER, true);
-        curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
-        curl_setopt($ch, CURLOPT_TIMEOUT_MS, $options['timeout']);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, $options['connect_timeout']);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $this->httpHeaders);
-        $response = curl_exec($ch);
-        $this->lastResponseInfo = curl_getinfo($ch);
-        curl_close($ch);
-
-        if (!$response) {
-            throw new Sailthru_Client_Exception(
-                "Bad response received from $url",
-                Sailthru_Client_Exception::CODE_RESPONSE_EMPTY
-            );
-        }
-
-        // parse headers and body
-        $parts = explode("\r\n\r\nHTTP/", $response);
-        $parts = (count($parts) > 1 ? 'HTTP/' : '') . array_pop($parts); // deal with HTTP/1.1 100 Continue before other headers
-        list($headers, $body) = explode("\r\n\r\n", $parts, 2);
-        $this->lastRateLimitInfo[$action][$method] = self::parseRateLimitHeaders($headers);
-
-        return $body;
+        throw new \LogicException('No longer supported');
     }
 
     /**
@@ -1462,6 +1393,8 @@ class Sailthru_Client {
      * @throws Sailthru_Client_Exception
      */
     protected function httpRequestWithoutCurl($action, $data, $method = 'POST', $options = [ ]) {
+        throw new \LogicException('No longer supported');
+        /* What to do with this? a new transport? Is it worth supporting with a subset of features?
         if ($this->fileUpload === true) {
             $this->fileUpload = false;
             throw new Sailthru_Client_Exception(
@@ -1494,6 +1427,7 @@ class Sailthru_Client {
             );
         }
         return $response;
+        */
     }
 
     /**
@@ -1507,11 +1441,16 @@ class Sailthru_Client {
      * @throws Sailthru_Client_Exception
      */
     protected function httpRequest($action, $data, $method = 'POST', $options = [ ]) {
-        $response = $this->{$this->http_request_type}($action, $data, $method, $options);
-        $json = json_decode($response, true);
+        $url = $this->apiUri."/".$action;
+
+        $responseArr = $this->transport->doRequest($url, $data, $method, $options);
+
+        $this->lastRateLimitInfo[$action][$method] = self::parseRateLimitHeaders($responseArr['headers']);
+
+        $json = json_decode($responseArr['body'], true);
         if ($json === NULL) {
             throw new Sailthru_Client_Exception(
-                "Response: {$response} is not a valid JSON",
+                sprintf("Response: %s is not a valid JSON", $responseArr['body']),
                 Sailthru_Client_Exception::CODE_RESPONSE_INVALID
             );
         }
@@ -1541,7 +1480,7 @@ class Sailthru_Client {
                         ? new CURLFile($data[$param])
                         : "@{$data[$param]}";
                     unset($data[$param]);
-                    $this->fileUpload = true;
+                    $options['fileUpload'] = true;
                 }
             }
         }
@@ -1577,7 +1516,7 @@ class Sailthru_Client {
      * @return array or null
      */
     public function getLastResponseInfo() {
-        return $this->lastResponseInfo;
+        return $this->transport->getLastResponseInfo();
     }
 
     /**
